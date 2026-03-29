@@ -1,0 +1,11 @@
+using Harmonify.MusicServer.Models;
+
+namespace Harmonify.MusicServer.Services;
+
+public interface IFileSystemScanner
+{
+  List<PlaylistInfo> GetPlaylists();
+  List<TrackInfo>? GetTracks(string playlistName);
+  string? GetTrackFilePath(string playlistName, string trackId);
+  (byte[] Data, string MimeType)? GetCoverArt(string playlistName, string trackId);
+}
