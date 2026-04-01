@@ -8,33 +8,38 @@ public static class Router
   {
     var api = app.MapGroup("/").RequireAuthorization();
 
-    // GET / — list playlists
-    api.MapGet("/", (IFileSystemScanner scanner) => Results.Ok(scanner.GetPlaylists()));
+    api.MapGet("/", (IFileSystemScanner scanner) => Results.Ok(scanner.GetPlaylists()))
+      .WithSummary("List playlists")
+      .WithDescription("Returns a list of all available playlists.");
 
-    // GET /{playlist} — list tracks in playlist
     api.MapGet("/{playlist}", (string playlist, IFileSystemScanner scanner) =>
     {
       var tracks = scanner.GetTracks(playlist);
       return tracks is null ? Results.NotFound() : Results.Ok(tracks);
-    });
+    })
+      .WithSummary("List tracks in a playlist")
+      .WithDescription("Returns all tracks belonging to the specified playlist. Returns 404 if the playlist does not exist.");
 
-    // GET /{playlist}/{id} — stream FLAC file
     api.MapGet("/{playlist}/{id}", (string playlist, string id, IFileSystemScanner scanner) =>
     {
       var filePath = scanner.GetTrackFilePath(playlist, id);
       return filePath is null
         ? Results.NotFound()
         : Results.File(filePath, "audio/flac", enableRangeProcessing: true);
-    });
+    })
+      .WithSummary("Stream a track")
+      .WithDescription("Streams the FLAC audio file for the specified track. Supports HTTP range requests for partial content. Returns 404 if the track does not exist.");
 
-    // GET /{playlist}/{id}/cover — cover art
     api.MapGet("/{playlist}/{id}/cover", (string playlist, string id, IFileSystemScanner scanner) =>
     {
       var cover = scanner.GetCoverArt(playlist, id);
       return cover is null
         ? Results.NotFound()
         : Results.Bytes(cover.Value.Data, cover.Value.MimeType);
-    });
+    })
+    .AllowAnonymous()
+      .WithSummary("Get track cover art")
+      .WithDescription("Returns the embedded cover art image for the specified track. Returns 404 if the track or cover art does not exist.");
 
     return app;
   }
