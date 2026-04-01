@@ -67,7 +67,8 @@ app.MapScalarApiReference("/api", options =>
         Username = musicServerConfig.Username,
         Password = musicServerConfig.Password,
       }
-    }
+    },
+    PreferredSecuritySchemes = ["Basic"]
   };
 });
 
@@ -76,5 +77,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAppEndpoints();
+
+app.Services.GetRequiredService<IFileSystemScanner>().Scan();
 
 app.Run();

@@ -4,28 +4,23 @@ using Microsoft.Extensions.Options;
 
 namespace Harmonify.MusicServer.Services;
 
-public partial class FileSystemScanner : IFileSystemScanner
+public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILogger<FileSystemScanner> logger)
+    : IFileSystemScanner
 {
     private readonly Dictionary<string, List<TrackInfo>> _playlists = new();
     private readonly Dictionary<(string Playlist, string Id), string> _filePaths = new();
-    private readonly ILogger<FileSystemScanner> _logger;
+    private readonly string _musicDirectory = options.Value.MusicDirectory;
 
     [GeneratedRegex(@"^(\d+)\.\s+(.+)\.flac$", RegexOptions.IgnoreCase)]
     private static partial Regex FilenamePattern();
 
-    public FileSystemScanner(IOptions<MusicServerOptions> options, ILogger<FileSystemScanner> logger)
+    public void Scan()
     {
-        _logger = logger;
-        Scan(options.Value.MusicDirectory);
-    }
-
-    private void Scan(string musicDirectory)
-    {
-        var rootDir = Path.GetFullPath(musicDirectory);
+        var rootDir = Path.GetFullPath(_musicDirectory);
 
         if (!Directory.Exists(rootDir))
         {
-            _logger.LogWarning("Music directory not found: {Path}", rootDir);
+            logger.LogWarning("Music directory not found: {Path}", rootDir);
             return;
         }
 
@@ -34,7 +29,7 @@ public partial class FileSystemScanner : IFileSystemScanner
             ScanPlaylist(dir);
         }
 
-        _logger.LogInformation("Scan complete: {Count} playlists found", _playlists.Count);
+        logger.LogInformation("Scan complete: {Count} playlists found", _playlists.Count);
     }
 
     private void ScanPlaylist(string directory)
@@ -49,7 +44,7 @@ public partial class FileSystemScanner : IFileSystemScanner
         }
         
         _playlists[playlistName] = tracks;
-        _logger.LogInformation("Loaded playlist '{Name}' with {Count} tracks", playlistName, tracks.Count);
+        logger.LogInformation("Loaded playlist '{Name}' with {Count} tracks", playlistName, tracks.Count);
     }
 
     private TrackInfo? ParseTrack(string playlistName, string filePath)
@@ -59,7 +54,7 @@ public partial class FileSystemScanner : IFileSystemScanner
 
         if (!match.Success)
         {
-            _logger.LogWarning("File does not match pattern '{{number}}. {{title}}.flac': {File}", fileName);
+            logger.LogWarning("File does not match pattern '{{number}}. {{title}}.flac': {File}", fileName);
             return null;
         }
 
@@ -89,7 +84,7 @@ public partial class FileSystemScanner : IFileSystemScanner
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to read metadata from: {File}", filePath);
+            logger.LogWarning(ex, "Failed to read metadata from: {File}", filePath);
 
             return new TrackInfo
             {
@@ -135,7 +130,7 @@ public partial class FileSystemScanner : IFileSystemScanner
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to read cover art from: {File}", filePath);
+            logger.LogWarning(ex, "Failed to read cover art from: {File}", filePath);
             return null;
         }
     }
