@@ -8,7 +8,7 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
     : IFileSystemScanner
 {
     private readonly Dictionary<string, List<TrackInfo>> _playlists = new();
-    private readonly Dictionary<(string Playlist, string Id), string> _filePaths = new();
+    private readonly Dictionary<(string Playlist, int Id), string> _filePaths = new();
     private readonly string _musicDirectory = options.Value.MusicDirectory;
 
     [GeneratedRegex(@"^(\d+)\.\s+(.+)\.flac$", RegexOptions.IgnoreCase)]
@@ -58,14 +58,14 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
             return null;
         }
 
-        var id = match.Groups[1].Value;
+        var id = int.Parse(match.Groups[1].Value);
         var parsedTitle = match.Groups[2].Value;
         _filePaths[(playlistName, id)] = filePath;
 
         return ReadTrackMetadata(id, fileName, parsedTitle, filePath);
     }
 
-    private TrackInfo ReadTrackMetadata(string id, string fileName, string parsedTitle, string filePath)
+    private TrackInfo ReadTrackMetadata(int id, string fileName, string parsedTitle, string filePath)
     {
         try
         {
@@ -107,12 +107,12 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
         return _playlists.GetValueOrDefault(playlistName);
     }
 
-    public string? GetTrackFilePath(string playlistName, string trackId)
+    public string? GetTrackFilePath(string playlistName, int trackId)
     {
         return _filePaths.GetValueOrDefault((playlistName, trackId));
     }
 
-    public (byte[] Data, string MimeType)? GetCoverArt(string playlistName, string trackId)
+    public (byte[] Data, string MimeType)? GetCoverArt(string playlistName, int trackId)
     {
         var filePath = GetTrackFilePath(playlistName, trackId);
         if (filePath is null)

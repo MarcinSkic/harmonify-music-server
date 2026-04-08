@@ -20,7 +20,7 @@ public static class Router
       .WithSummary("List tracks in a playlist")
       .WithDescription("Returns all tracks belonging to the specified playlist. Returns 404 if the playlist does not exist.");
 
-    api.MapGet("/{playlist}/{id}", (string playlist, string id, IFileSystemScanner scanner) =>
+    api.MapGet("/{playlist}/{id:int}", (string playlist, int id, IFileSystemScanner scanner) =>
     {
       var filePath = scanner.GetTrackFilePath(playlist, id);
       return filePath is null
@@ -30,7 +30,7 @@ public static class Router
       .WithSummary("Stream a track")
       .WithDescription("Streams the FLAC audio file for the specified track. Supports HTTP range requests for partial content. Returns 404 if the track does not exist.");
 
-    api.MapGet("/{playlist}/{id}/cover", (string playlist, string id, IFileSystemScanner scanner) =>
+    api.MapGet("/{playlist}/{id:int}/cover", (string playlist, int id, IFileSystemScanner scanner) =>
     {
       var cover = scanner.GetCoverArt(playlist, id);
       return cover is null
