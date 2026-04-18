@@ -11,7 +11,12 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
     private readonly Dictionary<(string Playlist, int Id), string> _filePaths = new();
     private readonly string _musicDirectory = options.Value.MusicDirectory;
 
-    [GeneratedRegex(@"^(\d+)\.\s+(.+)\.flac$", RegexOptions.IgnoreCase)]
+    private static readonly string[] SupportedFileTypes = ["*.flac", "*.mp3"];
+
+    private static readonly string SupportedExtensions =
+        string.Join("|", SupportedFileTypes.Select(supportedType => supportedType[2..]));
+
+    [GeneratedRegex(@"^(\d+)\.\s+(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
     private static partial Regex FilenamePattern();
 
     public void Scan()
@@ -35,7 +40,8 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
     private void ScanPlaylist(string directory)
     {
         var playlistName = Path.GetFileName(directory);
-        var tracks = Directory.GetFiles(directory, "*.flac").OrderBy(f => f)
+        var tracks = SupportedFileTypes
+            .SelectMany(ext => Directory.GetFiles(directory, ext)).OrderBy(f => f)
             .Select(file => ParseTrack(playlistName, file)).OfType<TrackInfo>().ToList();
 
         if (tracks.Count <= 0)
@@ -54,7 +60,7 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
 
         if (!match.Success)
         {
-            logger.LogWarning("File does not match pattern '{{number}}. {{title}}.flac': {File}", fileName);
+            logger.LogWarning("File does not match pattern '{{number}}. {{title}}.({SupportedExtensions})': {File}", SupportedExtensions,fileName);
             return null;
         }
 
