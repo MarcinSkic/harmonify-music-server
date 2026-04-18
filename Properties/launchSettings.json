@@ -9,6 +9,18 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "standalone": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:51234",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "MusicServer__MusicDirectory": "/mnt/ssd/MyStuff/Music/Quizes",
+        "MusicServer__Username": "harmonify",
+        "MusicServer__Password": "mPGhyM8Pqr77hoH4"
+      }
     }
   }
 }

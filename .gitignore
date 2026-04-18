@@ -135,3 +135,5 @@ _NCrunch*
 
 # Music files (user content)
 music/
+# Embedded frontend build output
+wwwroot/
