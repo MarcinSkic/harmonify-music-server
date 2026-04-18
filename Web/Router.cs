@@ -6,7 +6,7 @@ public static class Router
 {
   public static WebApplication MapAppEndpoints(this WebApplication app)
   {
-    var api = app.MapGroup("/").RequireAuthorization();
+    var api = app.MapGroup("/api/music").RequireAuthorization();
 
     api.MapGet("/", (IFileSystemScanner scanner) => Results.Ok(scanner.GetPlaylists()))
       .WithSummary("List playlists")

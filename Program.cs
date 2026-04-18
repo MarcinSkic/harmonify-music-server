@@ -54,6 +54,9 @@ var app = builder.Build();
 var musicServerConfig = serverConfigSection
   .Get<MusicServerOptions>()!;
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapOpenApi();
 app.MapScalarApiReference("/api", options =>
 {
@@ -77,6 +80,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAppEndpoints();
+app.MapFallbackToFile("index.html");
 
 app.Services.GetRequiredService<IFileSystemScanner>().Scan();
 
