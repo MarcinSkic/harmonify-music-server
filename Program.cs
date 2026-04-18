@@ -95,7 +95,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAppEndpoints();
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = embeddedProvider });
 
 app.Services.GetRequiredService<IFileSystemScanner>().Scan();
 
