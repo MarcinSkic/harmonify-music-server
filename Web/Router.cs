@@ -41,6 +41,28 @@ public static class Router
       .WithSummary("Get track cover art")
       .WithDescription("Returns the embedded cover art image for the specified track. Returns 404 if the track or cover art does not exist.");
 
+    app.MapGet("/api/linkPreview", async (string url, IHttpClientFactory httpClientFactory) =>
+    {
+      if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+        return Results.BadRequest("Invalid URL");
+
+      try
+      {
+        var client = httpClientFactory.CreateClient();
+        var upstream = await client.GetAsync(url);
+        if (!upstream.IsSuccessStatusCode)
+          return Results.StatusCode((int)upstream.StatusCode);
+
+        var contentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
+        var bytes = await upstream.Content.ReadAsByteArrayAsync();
+        return Results.Bytes(bytes, contentType);
+      }
+      catch
+      {
+        return Results.StatusCode(502);
+      }
+    }).AllowAnonymous();
+
     return app;
   }
 }

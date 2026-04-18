@@ -36,6 +36,7 @@ builder.Services.AddAuthorization();
 
 // Services
 builder.Services.AddSingleton<IFileSystemScanner, FileSystemScanner>();
+builder.Services.AddHttpClient();
 
 // CORS
 builder.Services.AddCors(options =>
