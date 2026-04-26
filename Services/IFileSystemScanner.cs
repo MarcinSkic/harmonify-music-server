@@ -7,6 +7,6 @@ public interface IFileSystemScanner
   void Scan();
   List<PlaylistInfo> GetPlaylists();
   List<TrackInfo>? GetTracks(string playlistName);
-  string? GetTrackFilePath(string playlistName, int trackId);
-  (byte[] Data, string MimeType)? GetCoverArt(string playlistName, int trackId);
+  string? GetTrackFilePath(string trackId);
+  (byte[] Data, string MimeType)? GetCoverArt(string trackId);
 }

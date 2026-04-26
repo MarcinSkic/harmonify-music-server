@@ -12,27 +12,27 @@ public static class Router
       .WithSummary("List playlists")
       .WithDescription("Returns a list of all available playlists.");
 
-    api.MapGet("/{playlist}", (string playlist, IFileSystemScanner scanner) =>
+    api.MapGet("/tracks/{**playlist}", (string playlist, IFileSystemScanner scanner) =>
     {
-      var tracks = scanner.GetTracks(playlist);
+      var tracks = scanner.GetTracks(Uri.UnescapeDataString(playlist));
       return tracks is null ? Results.NotFound() : Results.Ok(tracks);
     })
       .WithSummary("List tracks in a playlist")
-      .WithDescription("Returns all tracks belonging to the specified playlist. Returns 404 if the playlist does not exist.");
+      .WithDescription("Returns all tracks belonging to the specified playlist. Playlist name may contain slashes for nested playlists. Returns 404 if the playlist does not exist.");
 
-    api.MapGet("/{playlist}/{id:int}", (string playlist, int id, IFileSystemScanner scanner) =>
+    api.MapGet("/audio/{**id}", (string id, IFileSystemScanner scanner) =>
     {
-      var filePath = scanner.GetTrackFilePath(playlist, id);
+      var filePath = scanner.GetTrackFilePath(Uri.UnescapeDataString(id));
       return filePath is null
         ? Results.NotFound()
         : Results.File(filePath, "audio/flac", enableRangeProcessing: true);
     })
       .WithSummary("Stream a track")
-      .WithDescription("Streams the FLAC audio file for the specified track. Supports HTTP range requests for partial content. Returns 404 if the track does not exist.");
+      .WithDescription("Streams the audio file for the specified track ID. Track ID is the full relative path within the music library (e.g. Beatles/Abbey Road/1). Supports HTTP range requests. Returns 404 if the track does not exist.");
 
-    api.MapGet("/{playlist}/{id:int}/cover", (string playlist, int id, IFileSystemScanner scanner) =>
+    api.MapGet("/cover/{**id}", (string id, IFileSystemScanner scanner) =>
     {
-      var cover = scanner.GetCoverArt(playlist, id);
+      var cover = scanner.GetCoverArt(Uri.UnescapeDataString(id));
       return cover is null
         ? Results.NotFound()
         : Results.Bytes(cover.Value.Data, cover.Value.MimeType);

@@ -8,16 +8,20 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
     : IFileSystemScanner
 {
     private readonly Dictionary<string, List<TrackInfo>> _playlists = new();
-    private readonly Dictionary<(string Playlist, int Id), string> _filePaths = new();
+    private readonly Dictionary<string, string> _filePaths = new();
     private readonly string _musicDirectory = options.Value.MusicDirectory;
+    private readonly int _maxPlaylistDepth = options.Value.MaxPlaylistDepth;
 
     private static readonly string[] SupportedFileTypes = ["*.flac", "*.mp3"];
 
     private static readonly string SupportedExtensions =
         string.Join("|", SupportedFileTypes.Select(supportedType => supportedType[2..]));
 
-    [GeneratedRegex(@"^(\d+)\.\s+(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
-    private static partial Regex FilenamePattern();
+    [GeneratedRegex(@"^(\d+)\.(\d+)\s+(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
+    private static partial Regex MultiDiscPattern();
+
+    [GeneratedRegex(@"^(\d+)\.\s*(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
+    private static partial Regex StandardPattern();
 
     public void Scan()
     {
@@ -29,49 +33,85 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
             return;
         }
 
-        foreach (var dir in Directory.GetDirectories(rootDir).OrderBy(d => d))
-        {
-            ScanPlaylist(dir);
-        }
+        ScanDirectory(rootDir, "", 0);
 
         logger.LogInformation("Scan complete: {Count} playlists found", _playlists.Count);
     }
 
-    private void ScanPlaylist(string directory)
+    private void ScanDirectory(string absoluteDir, string relativeDir, int depth)
     {
-        var playlistName = Path.GetFileName(directory);
-        var tracks = SupportedFileTypes
-            .SelectMany(ext => Directory.GetFiles(directory, ext)).OrderBy(f => f)
-            .Select(file => ParseTrack(playlistName, file)).OfType<TrackInfo>().ToList();
+        var subDirs = Directory.GetDirectories(absoluteDir).OrderBy(d => d).ToList();
 
-        if (tracks.Count <= 0)
+        var directTracks = new List<TrackInfo>();
+        if (relativeDir != "")
         {
-            return;
+            directTracks = SupportedFileTypes
+                .SelectMany(ext => Directory.GetFiles(absoluteDir, ext))
+                .OrderBy(f => f)
+                .Select(file => ParseTrack(relativeDir, file))
+                .OfType<TrackInfo>()
+                .ToList();
         }
-        
-        _playlists[playlistName] = tracks;
-        logger.LogInformation("Loaded playlist '{Name}' with {Count} tracks", playlistName, tracks.Count);
+
+        var subTracks = new List<TrackInfo>();
+        if (depth < _maxPlaylistDepth)
+        {
+            foreach (var subDir in subDirs)
+            {
+                var subDirName = Path.GetFileName(subDir);
+                var subRelative = relativeDir == "" ? subDirName : $"{relativeDir}/{subDirName}";
+                ScanDirectory(subDir, subRelative, depth + 1);
+
+                if (_playlists.TryGetValue(subRelative, out var subPlaylistTracks))
+                    subTracks.AddRange(subPlaylistTracks);
+            }
+        }
+
+        if (relativeDir != "")
+        {
+            var allTracks = directTracks.Concat(subTracks).ToList();
+            if (allTracks.Count > 0)
+            {
+                _playlists[relativeDir] = allTracks;
+                logger.LogInformation("Loaded playlist '{Name}' with {Count} tracks", relativeDir, allTracks.Count);
+            }
+        }
     }
 
-    private TrackInfo? ParseTrack(string playlistName, string filePath)
+    private TrackInfo? ParseTrack(string relativeDir, string filePath)
     {
         var fileName = Path.GetFileName(filePath);
-        var match = FilenamePattern().Match(fileName);
 
-        if (!match.Success)
+        var multiDisc = MultiDiscPattern().Match(fileName);
+        if (multiDisc.Success)
         {
-            logger.LogWarning("File does not match pattern '{{number}}. {{title}}.({SupportedExtensions})': {File}", SupportedExtensions,fileName);
-            return null;
+            var disc = int.Parse(multiDisc.Groups[1].Value);
+            var track = int.Parse(multiDisc.Groups[2].Value);
+            var parsedTitle = multiDisc.Groups[3].Value;
+            var id = $"{relativeDir}/{disc * 1000 + track}";
+            _filePaths[id] = filePath;
+            return ReadTrackMetadata(id, fileName, parsedTitle, filePath);
         }
 
-        var id = int.Parse(match.Groups[1].Value);
-        var parsedTitle = match.Groups[2].Value;
-        _filePaths[(playlistName, id)] = filePath;
+        var standard = StandardPattern().Match(fileName);
+        if (standard.Success)
+        {
+            var num = int.Parse(standard.Groups[1].Value);
+            var parsedTitle = standard.Groups[2].Value;
+            var id = $"{relativeDir}/{num}";
+            _filePaths[id] = filePath;
+            return ReadTrackMetadata(id, fileName, parsedTitle, filePath);
+        }
 
-        return ReadTrackMetadata(id, fileName, parsedTitle, filePath);
+        var ext = Path.GetExtension(fileName);
+        var fallbackName = Path.GetFileNameWithoutExtension(fileName);
+        var fallbackId = $"{relativeDir}/{fallbackName}";
+        logger.LogWarning("File does not match known patterns, using filename as ID: {File}", fileName);
+        _filePaths[fallbackId] = filePath;
+        return ReadTrackMetadata(fallbackId, fileName, fallbackName, filePath);
     }
 
-    private TrackInfo ReadTrackMetadata(int id, string fileName, string parsedTitle, string filePath)
+    private TrackInfo ReadTrackMetadata(string id, string fileName, string parsedTitle, string filePath)
     {
         try
         {
@@ -113,14 +153,14 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
         return _playlists.GetValueOrDefault(playlistName);
     }
 
-    public string? GetTrackFilePath(string playlistName, int trackId)
+    public string? GetTrackFilePath(string trackId)
     {
-        return _filePaths.GetValueOrDefault((playlistName, trackId));
+        return _filePaths.GetValueOrDefault(trackId);
     }
 
-    public (byte[] Data, string MimeType)? GetCoverArt(string playlistName, int trackId)
+    public (byte[] Data, string MimeType)? GetCoverArt(string trackId)
     {
-        var filePath = GetTrackFilePath(playlistName, trackId);
+        var filePath = GetTrackFilePath(trackId);
         if (filePath is null)
             return null;
 
