@@ -17,7 +17,7 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
     private static readonly string SupportedExtensions =
         string.Join("|", SupportedFileTypes.Select(supportedType => supportedType[2..]));
 
-    [GeneratedRegex(@"^(\d+)\.(\d+)\s+(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(\d+)\.(\d+)\.?\s*(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
     private static partial Regex MultiDiscPattern();
 
     [GeneratedRegex(@"^(\d+)\.\s*(.+)\.(flac|mp3)$", RegexOptions.IgnoreCase)]
