@@ -9,6 +9,7 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
 {
     private readonly Dictionary<string, List<TrackInfo>> _playlists = new();
     private readonly Dictionary<string, string> _filePaths = new();
+    private readonly Dictionary<string, string?> _playlistCoverPaths = new();
     private readonly string _musicDirectory = options.Value.MusicDirectory;
     private readonly int _maxPlaylistDepth = options.Value.MaxPlaylistDepth;
 
@@ -74,6 +75,16 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
             {
                 _playlists[relativeDir] = allTracks;
                 logger.LogInformation("Loaded playlist '{Name}' with {Count} tracks", relativeDir, allTracks.Count);
+
+                var coverFile = Directory.EnumerateFiles(absoluteDir)
+                    .FirstOrDefault(f =>
+                        Path.GetFileName(f).Equals("playlist.jpg", StringComparison.OrdinalIgnoreCase) ||
+                        Path.GetFileName(f).Equals("playlist.png", StringComparison.OrdinalIgnoreCase));
+
+                if (coverFile is not null)
+                    _playlistCoverPaths[relativeDir] = coverFile;
+                else if (allTracks[0].HasCoverArt)
+                    _playlistCoverPaths[relativeDir] = null;
             }
         }
     }
@@ -144,7 +155,12 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
     public List<PlaylistInfo> GetPlaylists()
     {
         return _playlists
-            .Select(p => new PlaylistInfo { Name = p.Key, TrackCount = p.Value.Count })
+            .Select(p => new PlaylistInfo
+            {
+                Name = p.Key,
+                TrackCount = p.Value.Count,
+                HasCover = _playlistCoverPaths.ContainsKey(p.Key),
+            })
             .ToList();
     }
 
@@ -179,5 +195,23 @@ public partial class FileSystemScanner(IOptions<MusicServerOptions> options, ILo
             logger.LogWarning(ex, "Failed to read cover art from: {File}", filePath);
             return null;
         }
+    }
+
+    public (byte[] Data, string MimeType)? GetPlaylistCover(string playlistName)
+    {
+        if (!_playlists.ContainsKey(playlistName))
+            return null;
+
+        if (!_playlistCoverPaths.TryGetValue(playlistName, out var path))
+            return null;
+
+        if (path is not null)
+        {
+            var mime = path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
+            return (File.ReadAllBytes(path), mime);
+        }
+
+        var firstTrackId = _playlists[playlistName][0].Id;
+        return GetCoverArt(firstTrackId);
     }
 }
