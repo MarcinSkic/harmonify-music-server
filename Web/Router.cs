@@ -41,6 +41,17 @@ public static class Router
       .WithSummary("Get track cover art")
       .WithDescription("Returns the embedded cover art image for the specified track. Returns 404 if the track or cover art does not exist.");
 
+    api.MapGet("/playlist-cover/{**playlist}", (string playlist, IFileSystemScanner scanner) =>
+    {
+      var cover = scanner.GetPlaylistCover(Uri.UnescapeDataString(playlist));
+      return cover is null
+        ? Results.NotFound()
+        : Results.Bytes(cover.Value.Data, cover.Value.MimeType);
+    })
+    .AllowAnonymous()
+      .WithSummary("Get playlist cover art")
+      .WithDescription("Returns the cover art for the specified playlist. Uses playlist.jpg/playlist.png if present, otherwise falls back to the first track's embedded cover. Returns 404 if no cover is available.");
+
     app.MapGet("/api/linkPreview", async (string url, IHttpClientFactory httpClientFactory) =>
     {
       if (!Uri.TryCreate(url, UriKind.Absolute, out _))
